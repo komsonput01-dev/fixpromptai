@@ -4,7 +4,11 @@ import * as React from "react"
 import { Upload, Image as ImageIcon, Loader2, CheckCircle2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-export function ImageUploader() {
+interface ImageUploaderProps {
+  onUploadSuccess?: (file: File, base64Data: string) => void
+}
+
+export function ImageUploader({ onUploadSuccess }: ImageUploaderProps) {
   const [isDragging, setIsDragging] = React.useState(false)
   const [status, setStatus] = React.useState<"idle" | "uploading" | "analyzing" | "success">("idle")
   const [file, setFile] = React.useState<File | null>(null)
@@ -36,14 +40,24 @@ export function ImageUploader() {
     setFile(selectedFile)
     setStatus("uploading")
     
-    // Simulate upload delay
-    setTimeout(() => {
-      setStatus("analyzing")
-      // Simulate analysis delay
+    // Read the file as Base64
+    const reader = new FileReader()
+    reader.readAsDataURL(selectedFile)
+    reader.onload = () => {
+      const result = reader.result as string
+      // Extract the raw base64 data (after the comma)
+      const base64Data = result.split(",")[1]
+
+      // Simulate upload delay
       setTimeout(() => {
-        setStatus("success")
-      }, 2000)
-    }, 1500)
+        setStatus("analyzing")
+        // Simulate analysis delay
+        setTimeout(() => {
+          setStatus("success")
+          onUploadSuccess?.(selectedFile, base64Data)
+        }, 1500)
+      }, 1000)
+    }
   }
 
   return (

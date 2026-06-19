@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 
 export async function POST(req: Request) {
   try {
-    const { messages } = await req.json()
+    const { messages, image } = await req.json()
     const latestMessage = (messages[messages.length - 1]?.content || "").toLowerCase().trim()
 
     // 1. Check if Gemini API Key is available
@@ -16,6 +16,21 @@ export async function POST(req: Request) {
           role: m.role === "user" ? "user" : "model",
           parts: [{ text: m.content }]
         }))
+
+        // Inject image into the last user message if available
+        if (image && contents.length > 0) {
+          for (let i = contents.length - 1; i >= 0; i--) {
+            if (contents[i].role === "user") {
+              contents[i].parts.push({
+                inlineData: {
+                  mimeType: image.mimeType,
+                  data: image.base64
+                }
+              })
+              break
+            }
+          }
+        }
 
         // Call Gemini API (Free tier model)
         const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {

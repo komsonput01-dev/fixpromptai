@@ -15,9 +15,20 @@ interface Message {
   id: string
   role: string
   content: string
+  image?: string // Data URL for image (data:image/jpeg;base64,...)
 }
 
-export function ChatContainer() {
+interface UploadedImage {
+  file: File
+  base64: string
+}
+
+interface ChatContainerProps {
+  uploadedImage: UploadedImage | null
+  onClearImage: () => void
+}
+
+export function ChatContainer({ uploadedImage, onClearImage }: ChatContainerProps) {
   const [messages, setMessages] = React.useState<Message[]>([])
   const [input, setInput] = React.useState("")
   const [isLoading, setIsLoading] = React.useState(false)
@@ -29,13 +40,28 @@ export function ChatContainer() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
-  const sendMessage = async (textToSend: string) => {
-    if (!textToSend.trim() || isLoading) return
+  // Automatically submit image to chat when uploaded
+  React.useEffect(() => {
+    if (uploadedImage) {
+      const defaultText = `ช่วยวิเคราะห์รูปภาพปัญหา "${uploadedImage.file.name}" นี้และแนะนำแนวทางซ่อมแซมให้หน่อยครับ`
+      sendMessage(defaultText, uploadedImage)
+      onClearImage()
+    }
+  }, [uploadedImage])
+
+  const sendMessage = async (textToSend: string, imageToSend?: UploadedImage) => {
+    if (!textToSend.trim() && !imageToSend) return
+    if (isLoading) return
+
+    const imageUri = imageToSend 
+      ? `data:${imageToSend.file.type};base64,${imageToSend.base64}` 
+      : undefined
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
       content: textToSend.trim(),
+      image: imageUri,
     }
 
     // Capture current messages list to send to API
@@ -46,14 +72,23 @@ export function ChatContainer() {
     setError(null)
 
     try {
+      const payload: any = {
+        messages: updatedMessages.map(m => ({ role: m.role, content: m.content })),
+      }
+
+      if (imageToSend) {
+        payload.image = {
+          mimeType: imageToSend.file.type,
+          base64: imageToSend.base64
+        }
+      }
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          messages: updatedMessages.map(m => ({ role: m.role, content: m.content })),
-        }),
+        body: JSON.stringify(payload),
       })
 
       if (!res.ok) {
@@ -142,19 +177,27 @@ export function ChatContainer() {
             >
               <div
                 className={cn(
-                  "flex gap-3 max-w-[85%] rounded-2xl px-4 py-3",
+                  "flex flex-col gap-2 max-w-[85%] rounded-2xl px-4 py-3",
                   msg.role === "user"
                     ? "bg-blue-600 text-white"
                     : "bg-muted text-foreground"
                 )}
               >
                 {msg.role !== "user" && (
-                  <div className="flex-shrink-0 mt-0.5">
+                  <div className="flex gap-2 items-center mb-1">
                     <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
                       <Bot className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                     </div>
+                    <span className="text-xs font-semibold text-muted-foreground">Fixbot AI</span>
                   </div>
                 )}
+                
+                {msg.image && (
+                  <div className="relative max-w-[280px] overflow-hidden rounded-lg border border-border/30 shadow-sm bg-black/5">
+                    <img src={msg.image} alt="Uploaded problem" className="w-full h-auto object-contain max-h-[200px]" />
+                  </div>
+                )}
+
                 <div className="whitespace-pre-wrap text-sm leading-relaxed">
                   {msg.content}
                 </div>
@@ -210,4 +253,5 @@ export function ChatContainer() {
     </div>
   )
 }
+
 

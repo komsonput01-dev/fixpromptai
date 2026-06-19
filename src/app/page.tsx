@@ -1,9 +1,27 @@
+"use client"
+
+import * as React from "react"
 import { Navbar } from "@/components/Navbar"
 import { ChatContainer } from "@/components/ChatContainer"
 import { ImageUploader } from "@/components/ImageUploader"
 import { ToolsChecklist } from "@/components/ToolsChecklist"
 
+export interface UploadedImage {
+  file: File
+  base64: string
+}
+
 export default function Home() {
+  const [uploadedImage, setUploadedImage] = React.useState<UploadedImage | null>(null)
+
+  const handleUploadSuccess = (file: File, base64: string) => {
+    setUploadedImage({ file, base64 })
+  }
+
+  const handleClearImage = () => {
+    setUploadedImage(null)
+  }
+
   return (
     <>
       <Navbar />
@@ -14,12 +32,15 @@ export default function Home() {
           <div className="lg:col-span-8 flex flex-col gap-6">
             <section aria-label="อัปโหลดรูปภาพปัญหา">
               <h2 className="text-xl font-semibold mb-4 text-foreground">อัปโหลดรูปภาพปัญหาของคุณ</h2>
-              <ImageUploader />
+              <ImageUploader onUploadSuccess={handleUploadSuccess} />
             </section>
             
             <section aria-label="พูดคุยกับผู้ช่วย" className="flex-1 flex flex-col min-h-[400px]">
               <h2 className="text-xl font-semibold mb-4 text-foreground">พูดคุยกับผู้ช่วย AI</h2>
-              <ChatContainer />
+              <ChatContainer 
+                uploadedImage={uploadedImage} 
+                onClearImage={handleClearImage} 
+              />
             </section>
           </div>
 
@@ -36,3 +57,4 @@ export default function Home() {
     </>
   )
 }
+
