@@ -31,14 +31,17 @@ interface ChatContainerProps {
 }
 
 const toolDictionary: { keywords: string[], name: string, required: boolean, type: 'tool' | 'part' }[] = [
-  { keywords: ["ไขควงแฉก", "ไขควง"], name: "ไขควงแฉก (Phillips screwdriver)", required: true, type: 'tool' },
-  { keywords: ["เทปพันเกลียว", "เทปพันท่อ"], name: "เทปพันเกลียว (Teflon tape)", required: true, type: 'part' },
-  { keywords: ["ประแจเลื่อน", "ประแจคอม้า", "ประแจ"], name: "ประแจเลื่อน", required: true, type: 'tool' },
-  { keywords: ["ถุงมือ"], name: "ถุงมือยางป้องกันสิ่งสกปรก", required: false, type: 'part' },
+  { keywords: ["ไขควงแฉก", "ไขควงปากแฉก"], name: "ไขควงแฉก (Phillips screwdriver)", required: true, type: 'tool' },
+  { keywords: ["ไขควงปากแบน", "ไขควงแบน"], name: "ไขควงปากแบน (Flathead screwdriver)", required: true, type: 'tool' },
+  { keywords: ["ไขควง"], name: "ไขควงชุดเครื่องมือช่าง", required: true, type: 'tool' },
+  { keywords: ["เทปพันเกลียว", "เทปพันท่อ", "เทปเกลียว"], name: "เทปพันเกลียว (Teflon tape)", required: true, type: 'part' },
+  { keywords: ["ประแจเลื่อน", "ประแจคอม้า", "ประแจปากตาย", "ประแจ"], name: "ประแจเลื่อน", required: true, type: 'tool' },
+  { keywords: ["ถุงมือยาง", "ถุงมือ"], name: "ถุงมือยางป้องกันสิ่งสกปรก", required: false, type: 'tool' },
+  { keywords: ["รองเท้าบูท", "รองเท้าบู๊ท"], name: "รองเท้าบูทยางนิรภัย", required: false, type: 'tool' },
   { keywords: ["กาวประสานท่อ", "กาวทาท่อ", "น้ำยาประสานท่อ", "กาว pvc"], name: "กาวประสานท่อ PVC", required: true, type: 'part' },
   { keywords: ["ไขควงวัดไฟ", "วัดไฟ"], name: "ไขควงวัดไฟ (Voltage Tester)", required: true, type: 'tool' },
   { keywords: ["ซิลิโคน", "thermal paste"], name: "ซิลิโคนระบายความร้อน (Thermal Paste)", required: true, type: 'part' },
-  { keywords: ["น้ำมันจักร", "น้ำมันหล่อลื่น", "wd-40"], name: "น้ำมันจักรหล่อลื่น", required: true, type: 'part' },
+  { keywords: ["น้ำมันจักร", "น้ำมันหล่อลื่น", "wd-40", "น้ำมันเอนกประสงค์"], name: "น้ำมันจักร / น้ำมันหล่อลื่นเอนกประสงค์", required: true, type: 'part' },
   { keywords: ["คัตเตอร์", "มีดคัตเตอร์"], name: "มีดคัตเตอร์", required: false, type: 'tool' },
   { keywords: ["เทปพันละลาย", "เทปพันสายไฟ"], name: "เทปพันสายไฟ", required: true, type: 'part' },
   { keywords: ["กระเบื้อง", "แผ่นกระเบื้อง"], name: "แผ่นกระเบื้องมุงหลังคา", required: true, type: 'part' },
@@ -53,7 +56,14 @@ const toolDictionary: { keywords: string[], name: string, required: boolean, typ
   { keywords: ["จอบ", "พลั่ว", "ขุดดิน"], name: "จอบหรือพลั่วขุดดิน", required: true, type: 'tool' },
   { keywords: ["ปืนยิงกาว"], name: "ปืนยิงกาว (Caulking Gun)", required: true, type: 'tool' },
   { keywords: ["บันได"], name: "บันไดอลูมิเนียม", required: true, type: 'tool' },
-  { keywords: ["แปรง", "พู่กัน"], name: "แปรงปัดฝุ่น", required: false, type: 'tool' }
+  { keywords: ["แปรง", "พู่กัน"], name: "แปรงปัดฝุ่น", required: false, type: 'tool' },
+  { keywords: ["ลูกยางปั๊มส้วม", "ปั๊มส้วม", "plunger", "ลูกยางปั๊ม"], name: "ลูกยางปั๊มส้วม (Plunger)", required: true, type: 'tool' },
+  { keywords: ["งูเหล็ก", "toilet auger", "closet auger"], name: "งูเหล็กทะลวงท่อ (Toilet Auger)", required: true, type: 'tool' },
+  { keywords: ["ค้อน"], name: "ค้อนเหล็ก (Hammer)", required: true, type: 'tool' },
+  { keywords: ["สว่าน", "สว่านไฟฟ้า"], name: "สว่านไฟฟ้า (Electric Drill)", required: true, type: 'tool' },
+  { keywords: ["กระดาษทราย"], name: "กระดาษทราย (Sandpaper)", required: false, type: 'part' },
+  { keywords: ["เทปผ้า", "duct tape"], name: "เทปผ้าเอนกประสงค์ (Duct Tape)", required: true, type: 'part' },
+  { keywords: ["กาวร้อน", "super glue"], name: "กาวร้อน (Super Glue)", required: true, type: 'part' }
 ]
 
 function extractTools(text: string): ToolItem[] {
