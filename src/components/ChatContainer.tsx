@@ -3,6 +3,7 @@
 import { Send, Bot, AlertCircle } from "lucide-react"
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import { ToolItem } from "./ToolsChecklist"
 
 const promptChips = [
   "ท่อน้ำรั่ว",
@@ -26,9 +27,47 @@ interface UploadedImage {
 interface ChatContainerProps {
   uploadedImage: UploadedImage | null
   onClearImage: () => void
+  onToolsParsed: (tools: ToolItem[]) => void
 }
 
-export function ChatContainer({ uploadedImage, onClearImage }: ChatContainerProps) {
+const toolDictionary = [
+  { keywords: ["ไขควงแฉก", "ไขควง"], name: "ไขควงแฉก (Phillips screwdriver)", required: true },
+  { keywords: ["เทปพันเกลียว", "เทปพันท่อ"], name: "เทปพันเกลียว (Teflon tape)", required: true },
+  { keywords: ["ประแจเลื่อน", "ประแจคอม้า", "ประแจ"], name: "ประแจเลื่อน หรือ ประแจคอม้า", required: true },
+  { keywords: ["ถุงมือ"], name: "ถุงมือยางป้องกันสิ่งสกปรก", required: false },
+  { keywords: ["กาวประสานท่อ", "กาวทาท่อ", "น้ำยาประสานท่อ", "กาว pvc"], name: "กาวประสานท่อ PVC", required: true },
+  { keywords: ["ไขควงวัดไฟ", "วัดไฟ"], name: "ไขควงวัดไฟ (Voltage Tester)", required: true },
+  { keywords: ["ซิลิโคน", "thermal paste"], name: "ซิลิโคนระบายความร้อน (Thermal Paste)", required: true },
+  { keywords: ["น้ำมันเอนกประสงค์", "น้ำมันจักร", "น้ำมันหล่อลื่น", "wd-40"], name: "น้ำมันจักร / น้ำมันหล่อลื่นเอนกประสงค์", required: true },
+  { keywords: ["คัตเตอร์", "มีด"], name: "มีดคัตเตอร์ (Utility knife)", required: false },
+  { keywords: ["เทปพันละลาย", "เทปพันสายไฟ"], name: "เทปพันสายไฟ หรือ เทปพันละลาย", required: true },
+  { keywords: ["อะไหล่กระเบื้อง", "กระเบื้องมุงหลังคา", "แผ่นกระเบื้อง"], name: "แผ่นกระเบื้องมุงหลังคาชิ้นใหม่", required: true },
+  { keywords: ["แผ่นปิดรอยต่อ", "flashband", "butyl tape"], name: "แผ่นปิดรอยต่อกันซึม (Flashband / Butyl Tape)", required: true },
+  { keywords: ["โพลียูรีเทนซีลแลนท์", "pu sealant", "กาวพียู"], name: "โพลียูรีเทนซีลแลนท์ (PU Sealant)", required: true },
+  { keywords: ["กาวอะคริลิก", "อะคริลิกกันซึม"], name: "กาวอะคริลิกกันซึม (Acrylic Sealant)", required: true },
+  { keywords: ["เครื่องมือวัด", "มัลติมิเตอร์"], name: "มัลติมิเตอร์วัดค่ากระแสไฟฟ้า", required: false },
+  { keywords: ["คาปาซิเตอร์", "c สตาร์ท"], name: "คาปาซิเตอร์ตัวใหม่ (Capacitor)", required: true },
+  { keywords: ["หัวแร้งบัดกรี", "บัดกรี"], name: "หัวแร้งและตะกั่วบัดกรี", required: true }
+]
+
+function extractTools(text: string): ToolItem[] {
+  const foundTools: ToolItem[] = []
+  let idCounter = 1
+  for (const item of toolDictionary) {
+    const matches = item.keywords.some(kw => text.toLowerCase().includes(kw.toLowerCase()))
+    if (matches) {
+      foundTools.push({
+        id: String(idCounter++),
+        name: item.name,
+        checked: false,
+        required: item.required
+      })
+    }
+  }
+  return foundTools
+}
+
+export function ChatContainer({ uploadedImage, onClearImage, onToolsParsed }: ChatContainerProps) {
   const [messages, setMessages] = React.useState<Message[]>([])
   const [input, setInput] = React.useState("")
   const [isLoading, setIsLoading] = React.useState(false)
@@ -125,6 +164,10 @@ export function ChatContainer({ uploadedImage, onClearImage }: ChatContainerProp
                 msg.id === assistantMessageId ? { ...msg, content: accumulatedContent } : msg
               )
             )
+
+            // Extract tools dynamically in real-time as text arrives
+            const parsedTools = extractTools(accumulatedContent)
+            onToolsParsed(parsedTools)
           }
         }
       }
@@ -253,5 +296,3 @@ export function ChatContainer({ uploadedImage, onClearImage }: ChatContainerProp
     </div>
   )
 }
-
-

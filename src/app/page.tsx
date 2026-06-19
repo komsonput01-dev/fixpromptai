@@ -4,7 +4,7 @@ import * as React from "react"
 import { Navbar } from "@/components/Navbar"
 import { ChatContainer } from "@/components/ChatContainer"
 import { ImageUploader } from "@/components/ImageUploader"
-import { ToolsChecklist } from "@/components/ToolsChecklist"
+import { ToolsChecklist, ToolItem } from "@/components/ToolsChecklist"
 
 export interface UploadedImage {
   file: File
@@ -13,6 +13,7 @@ export interface UploadedImage {
 
 export default function Home() {
   const [uploadedImage, setUploadedImage] = React.useState<UploadedImage | null>(null)
+  const [tools, setTools] = React.useState<ToolItem[]>([])
 
   const handleUploadSuccess = (file: File, base64: string) => {
     setUploadedImage({ file, base64 })
@@ -20,6 +21,10 @@ export default function Home() {
 
   const handleClearImage = () => {
     setUploadedImage(null)
+  }
+
+  const handleToggleTool = (id: string) => {
+    setTools(prevTools => prevTools.map(t => t.id === id ? { ...t, checked: !t.checked } : t))
   }
 
   return (
@@ -40,6 +45,7 @@ export default function Home() {
               <ChatContainer 
                 uploadedImage={uploadedImage} 
                 onClearImage={handleClearImage} 
+                onToolsParsed={setTools}
               />
             </section>
           </div>
@@ -48,7 +54,7 @@ export default function Home() {
           <div className="lg:col-span-4 flex flex-col">
             <section aria-label="รายการอุปกรณ์" className="sticky top-24 h-[calc(100vh-8rem)] min-h-[400px]">
               <h2 className="text-xl font-semibold mb-4 text-foreground">รายการอุปกรณ์</h2>
-              <ToolsChecklist />
+              <ToolsChecklist tools={tools} onToggle={handleToggleTool} />
             </section>
           </div>
 
@@ -57,4 +63,5 @@ export default function Home() {
     </>
   )
 }
+
 

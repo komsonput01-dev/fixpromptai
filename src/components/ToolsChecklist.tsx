@@ -3,29 +3,21 @@
 import * as React from "react"
 import { CheckSquare, Square, Wrench, ShieldAlert } from "lucide-react"
 
-type ToolItem = {
+export type ToolItem = {
   id: string
   name: string
   checked: boolean
   required: boolean
 }
 
-const initialTools: ToolItem[] = [
-  { id: "1", name: "ไขควงแฉก (Phillips screwdriver)", checked: false, required: true },
-  { id: "2", name: "เทปพันเกลียว (Teflon tape)", checked: false, required: true },
-  { id: "3", name: "ประแจคอม้า หรือ ประแจเลื่อน", checked: false, required: true },
-  { id: "4", name: "ถุงมือยาง (ป้องกันสิ่งสกปรก)", checked: false, required: false },
-]
+interface ToolsChecklistProps {
+  tools: ToolItem[]
+  onToggle: (id: string) => void
+}
 
-export function ToolsChecklist() {
-  const [tools, setTools] = React.useState<ToolItem[]>(initialTools)
-
-  const toggleTool = (id: string) => {
-    setTools(tools.map(t => t.id === id ? { ...t, checked: !t.checked } : t))
-  }
-
+export function ToolsChecklist({ tools, onToggle }: ToolsChecklistProps) {
   const completedCount = tools.filter(t => t.checked).length
-  const progress = Math.round((completedCount / tools.length) * 100)
+  const progress = tools.length > 0 ? Math.round((completedCount / tools.length) * 100) : 0
 
   return (
     <div className="flex flex-col h-full bg-card/50 border rounded-xl overflow-hidden shadow-sm">
@@ -49,15 +41,17 @@ export function ToolsChecklist() {
 
       <div className="p-4 space-y-3 flex-1 overflow-y-auto">
         {tools.length === 0 ? (
-          <div className="text-center text-muted-foreground text-sm py-8">
-            รอการวิเคราะห์ปัญหาจาก AI...
+          <div className="text-center text-muted-foreground text-sm py-12 flex flex-col items-center justify-center h-full">
+            <Wrench className="w-10 h-10 text-muted-foreground/30 mb-2" />
+            <p>เมื่อคุณพูดคุยหรืออัปโหลดรูปภาพปัญหา</p>
+            <p className="text-xs text-muted-foreground/80 mt-1">AI จะช่วยวิเคราะห์และแสดงรายการเครื่องมือที่ต้องใช้ที่นี่ครับ</p>
           </div>
         ) : (
           <ul className="space-y-2">
             {tools.map(tool => (
               <li key={tool.id}>
                 <label className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors group">
-                  <div className="mt-0.5" onClick={() => toggleTool(tool.id)}>
+                  <div className="mt-0.5" onClick={() => onToggle(tool.id)}>
                     {tool.checked ? (
                       <CheckSquare className="w-5 h-5 text-amber-600 dark:text-amber-400 transition-transform group-hover:scale-110" />
                     ) : (
@@ -92,3 +86,4 @@ export function ToolsChecklist() {
     </div>
   )
 }
+
