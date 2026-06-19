@@ -1,17 +1,119 @@
 import { NextResponse } from "next/server"
 
+const SYSTEM_PROMPT = "คุณคือ Fixbot AI ผู้ช่วยแนะนำงานซ่อมแซมบ้าน อุปกรณ์ชำรุด และงานช่างแบบ DIY มืออาชีพ ให้คำแนะนำโดยละเอียด เป็นขั้นตอน ปลอดภัย ตอบเป็นภาษาไทยอย่างสุภาพ เป็นกันเอง\n\nข้อสำคัญ: เมื่อสิ้นสุดการเขียนคำแนะนำเสร็จสิ้นทุกครั้ง คุณต้องเว้นบรรทัดใหม่ 2 ครั้งแล้วต่อท้ายด้วยแท็กป้ายกำกับเครื่องมือที่แบ่งออกเป็น เครื่องมือ กับ อะไหล่ แยกกัน คั่นด้วยสัญลักษณ์ | ในรูปแบบดังนี้:\n[TOOLS_LIST] เครื่องมือ: เครื่องมือที่ 1, เครื่องมือที่ 2 | อะไหล่: อะไหล่ที่ 1, อะไหล่ที่ 2\nตัวอย่าง: [TOOLS_LIST] เครื่องมือ: ไขควงแฉก, ประแจเลื่อน | อะไหล่: เทปพันเกลียว, ข้อต่อท่อ PVC\n(กรุณาใส่ชื่ออุปกรณ์และวัสดุอะไหล่ซ่อมที่เกี่ยวข้องในบทแนะนำนั้น คั่นด้วยเครื่องหมายจุลภาค , เสมอ และต้องใส่แท็กนี้ทุกครั้งไม่ว่าผู้ใช้จะถามอะไร)"
+
 export async function POST(req: Request) {
   try {
     const { messages, image } = await req.json()
     const latestMessage = (messages[messages.length - 1]?.content || "").toLowerCase().trim()
 
-    // 1. Check if Gemini API Key is available
-    const apiKey = process.env.GEMINI_API_KEY
+    const geminiKey = process.env.GEMINI_API_KEY
+    const openaiKey = process.env.OPENAI_API_KEY
+
+    // Auto-detect provider based on keys
+    let provider: "openai" | "gemini" | null = null
+    let activeApiKey = ""
+
+    if (openaiKey && openaiKey.startsWith("sk-")) {
+      provider = "openai"
+      activeApiKey = openaiKey
+    } else if (geminiKey && geminiKey.startsWith("sk-")) {
+      provider = "openai"
+      activeApiKey = geminiKey
+    } else if (geminiKey && (geminiKey.startsWith("AIzaSy") || geminiKey.startsWith("AQ."))) {
+      provider = "gemini"
+      activeApiKey = geminiKey
+    }
+
     let textResponse = ""
 
-    if (apiKey) {
+    // 1. Call selected API
+    if (provider === "openai") {
       try {
-        // Prepare contents structure for Google Gemini API
+        const openAIMessages: any[] = [
+          {
+            role: "system",
+            content: SYSTEM_PROMPT
+          }
+        ]
+
+        for (const m of messages) {
+          openAIMessages.push({
+            role: m.role === "user" ? "user" : "assistant",
+            content: m.content
+          })
+        }
+
+        // Inject image into the last user message if available
+        if (image && openAIMessages.length > 0) {
+          for (let i = openAIMessages.length - 1; i >= 0; i--) {
+            if (openAIMessages[i].role === "user") {
+              const textContent = openAIMessages[i].content
+              openAIMessages[i].content = [
+                {
+                  type: "text",
+                  text: textContent
+                },
+                {
+                  type: "image_url",
+                  image_url: {
+                    url: `data:${image.mimeType};base64,${image.base64}`
+                  }
+                }
+              ]
+              break
+            }
+          }
+        }
+
+        const openAIRes = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${activeApiKey}`
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: openAIMessages,
+            temperature: 0.7,
+            max_tokens: 2048
+          })
+        })
+
+        if (openAIRes.status === 429) {
+          textResponse = `⚠️ **โควตาการใช้งาน OpenAI API Key ของคุณหมดชั่วคราว (Quota Exceeded - 429)**
+
+ขออภัยครับ คีย์ที่ท่านใช้งานอยู่จำกัดสิทธิ์หรือยอดเงินในบัญชีไม่เพียงพอสำหรับการใช้งานโควตาฟรีหรือโควตาปัจจุบันครับ
+
+👉 **วิธีแก้ไขเพื่อให้ใช้ได้งานต่อได้ทันที**:
+1. เติมเงินในระบบของ OpenAI หรือ ตรวจสอบสิทธิ์การใช้งานคีย์ได้ที่ [OpenAI API Dashboard](https://platform.openai.com/)
+2. หากต้องการสลับกลับไปใช้ Gemini ให้เปลี่ยนคีย์ในไฟล์ \`.env.local\` ให้เป็นคีย์ขึ้นต้นด้วย \`AIzaSy...\` หรือ \`AQ...\`
+3. ระบบจะทำงานและตอบคำถามซ่อมแซมได้ต่อเนื่องทันทีครับ!
+
+[TOOLS_LIST] เครื่องมือ: คอมพิวเตอร์, อินเทอร์เน็ตเบราว์เซอร์ | อะไหล่: ยอดเงินในบัญชี OpenAI`
+        } else if (openAIRes.status === 401) {
+          textResponse = `⚠️ **ข้อผิดพลาดสิทธิ์การใช้งาน API Key ของ OpenAI (Unauthorized - 401)**
+
+ขออภัยครับ API Key ของ OpenAI ที่คุณตั้งค่าไว้ไม่ถูกต้อง หรือไม่ได้รับอนุญาตให้เข้าใช้งานในขณะนี้
+
+👉 **วิธีแก้ไขเพื่อให้ใช้ได้งานต่อได้ทันที**:
+1. ตรวจสอบคีย์ในไฟล์ \`.env.local\` ว่าถูกต้องและไม่มีอักขระหรือช่องว่างส่วนเกิน
+2. หากยังไม่มีคีย์ สามารถสมัครและสร้างคีย์ใหม่ได้ที่ [OpenAI API Keys Dashboard](https://platform.openai.com/api-keys)
+3. หากมี Gemini Key อยู่ สามารถนำมาสลับใช้งานได้เช่นกันครับ
+
+[TOOLS_LIST] เครื่องมือ: คอมพิวเตอร์, อินเทอร์เน็ตเบราว์เซอร์ | อะไหล่: API Key ที่ถูกต้อง`
+        } else if (openAIRes.ok) {
+          const resData = await openAIRes.json()
+          textResponse = resData.choices?.[0]?.message?.content || ""
+        } else {
+          const errText = await openAIRes.text()
+          console.error("OpenAI API error response:", errText)
+        }
+      } catch (openAIError) {
+        console.error("OpenAI API connection error, falling back to mock:", openAIError)
+      }
+    } else if (provider === "gemini") {
+      try {
         const contents = messages.map((m: any) => ({
           role: m.role === "user" ? "user" : "model",
           parts: [{ text: m.content }]
@@ -32,8 +134,7 @@ export async function POST(req: Request) {
           }
         }
 
-        // Call Gemini API (Free tier model)
-        const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+        const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${activeApiKey}`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -41,7 +142,7 @@ export async function POST(req: Request) {
           body: JSON.stringify({
             contents,
             systemInstruction: {
-              parts: [{ text: "คุณคือ Fixbot AI ผู้ช่วยแนะนำงานซ่อมแซมบ้าน อุปกรณ์ชำรุด และงานช่างแบบ DIY มืออาชีพ ให้คำแนะนำโดยละเอียด เป็นขั้นตอน ปลอดภัย ตอบเป็นภาษาไทยอย่างสุภาพ เป็นกันเอง\n\nข้อสำคัญ: เมื่อสิ้นสุดการเขียนคำแนะนำเสร็จสิ้นทุกครั้ง คุณต้องเว้นบรรทัดใหม่ 2 ครั้งแล้วต่อท้ายด้วยแท็กป้ายกำกับเครื่องมือที่แบ่งออกเป็น เครื่องมือ กับ อะไหล่ แยกกัน คั่นด้วยสัญลักษณ์ | ในรูปแบบดังนี้:\n[TOOLS_LIST] เครื่องมือ: เครื่องมือที่ 1, เครื่องมือที่ 2 | อะไหล่: อะไหล่ที่ 1, อะไหล่ที่ 2\nตัวอย่าง: [TOOLS_LIST] เครื่องมือ: ไขควงแฉก, ประแจเลื่อน | อะไหล่: เทปพันเกลียว, ข้อต่อท่อ PVC\n(กรุณาใส่ชื่ออุปกรณ์และวัสดุอะไหล่ซ่อมที่เกี่ยวข้องในบทแนะนำนั้น คั่นด้วยเครื่องหมายจุลภาค , เสมอ และต้องใส่แท็กนี้ทุกครั้งไม่ว่าผู้ใช้จะถามอะไร)" }]
+              parts: [{ text: SYSTEM_PROMPT }]
             },
             generationConfig: {
               temperature: 0.7,
@@ -64,13 +165,16 @@ export async function POST(req: Request) {
         } else if (geminiRes.ok) {
           const resData = await geminiRes.json()
           textResponse = resData.candidates?.[0]?.content?.parts?.[0]?.text || ""
+        } else {
+          const errText = await geminiRes.text()
+          console.error("Gemini API error response:", errText)
         }
       } catch (geminiError) {
-        console.error("Gemini API connection error, falling back to mock chatbot:", geminiError)
+        console.error("Gemini API connection error, falling back to mock:", geminiError)
       }
     }
 
-    // 2. Fallback to Local Mock Rules if API is not set or failed
+    // 2. Fallback to Local Mock Rules if API is not set, failed, or has no response
     if (!textResponse) {
       if (latestMessage.includes("หลังคา")) {
         textResponse = `ปัญหาหลังคารั่วซึมเป็นเรื่องสำคัญที่ต้องรีบแก้ไขเพื่อป้องกันฝ้าเพดานเสียหายครับ โดยมีขั้นตอนเช็กและซ่อมแซมดังนี้:
