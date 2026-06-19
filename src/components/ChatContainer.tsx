@@ -30,6 +30,46 @@ interface ChatContainerProps {
   onToolsParsed: (tools: ToolItem[]) => void
 }
 
+const toolDictionary = [
+  { keywords: ["ไขควงแฉก", "ไขควง"], name: "ไขควงแฉก (Phillips screwdriver)", required: true },
+  { keywords: ["เทปพันเกลียว", "เทปพันท่อ"], name: "เทปพันเกลียว (Teflon tape)", required: true },
+  { keywords: ["ประแจเลื่อน", "ประแจคอม้า", "ประแจ"], name: "ประแจเลื่อน", required: true },
+  { keywords: ["ถุงมือ"], name: "ถุงมือยางป้องกันสิ่งสกปรก", required: false },
+  { keywords: ["กาวประสานท่อ", "กาวทาท่อ", "น้ำยาประสานท่อ", "กาว pvc"], name: "กาวประสานท่อ PVC", required: true },
+  { keywords: ["ไขควงวัดไฟ", "วัดไฟ"], name: "ไขควงวัดไฟ (Voltage Tester)", required: true },
+  { keywords: ["ซิลิโคน", "thermal paste"], name: "ซิลิโคนระบายความร้อน (Thermal Paste)", required: true },
+  { keywords: ["น้ำมันจักร", "น้ำมันหล่อลื่น", "wd-40"], name: "น้ำมันจักรหล่อลื่น", required: true },
+  { keywords: ["คัตเตอร์", "มีดคัตเตอร์"], name: "มีดคัตเตอร์", required: false },
+  { keywords: ["เทปพันละลาย", "เทปพันสายไฟ"], name: "เทปพันสายไฟ", required: true },
+  { keywords: ["กระเบื้อง", "แผ่นกระเบื้อง"], name: "แผ่นกระเบื้องมุงหลังคา", required: true },
+  { keywords: ["แผ่นปิดรอยต่อ", "flashband", "butyl tape"], name: "แผ่นปิดรอยต่อกันซึม (Flashband)", required: true },
+  { keywords: ["ซีลแลนท์", "pu sealant", "กาวพียู"], name: "โพลียูรีเทนซีลแลนท์ (PU Sealant)", required: true },
+  { keywords: ["กาวอะคริลิก", "อะคริลิกกันซึม"], name: "กาวอะคริลิกกันซึม", required: true },
+  { keywords: ["มัลติมิเตอร์"], name: "มัลติมิเตอร์วัดไฟฟ้า", required: false },
+  { keywords: ["คาปาซิเตอร์", "c สตาร์ท"], name: "คาปาซิเตอร์ (Capacitor)", required: true },
+  { keywords: ["หัวแร้งบัดกรี", "บัดกรี"], name: "หัวแร้งและตะกั่วบัดกรี", required: true },
+  { keywords: ["เลื่อย", "เลื่อยตัดท่อ", "เลื่อยเหล็ก"], name: "เลื่อยตัดท่อ / เลื่อยโครงเหล็ก", required: true },
+  { keywords: ["ตัวรัดซ่อมท่อ", "ตัวรัดท่อ", "repair clamp"], name: "ตัวรัดซ่อมท่อ (Repair Clamp)", required: false },
+  { keywords: ["จอบ", "พลั่ว", "ขุดดิน"], name: "จอบหรือพลั่วขุดดิน", required: true }
+]
+
+function extractTools(text: string): ToolItem[] {
+  const foundTools: ToolItem[] = []
+  let idCounter = 1
+  for (const item of toolDictionary) {
+    const matches = item.keywords.some(kw => text.toLowerCase().includes(kw.toLowerCase()))
+    if (matches) {
+      foundTools.push({
+        id: String(idCounter++),
+        name: item.name,
+        checked: false,
+        required: item.required
+      })
+    }
+  }
+  return foundTools
+}
+
 export function ChatContainer({ uploadedImage, onClearImage, onToolsParsed }: ChatContainerProps) {
   const [messages, setMessages] = React.useState<Message[]>([])
   const [input, setInput] = React.useState("")
@@ -140,9 +180,9 @@ export function ChatContainer({ uploadedImage, onClearImage, onToolsParsed }: Ch
 
             // Parse and push dynamic tools to checklist side panel
             if (toolsPart.trim()) {
+              // If the AI has output the [TOOLS_LIST] tag, use it as primary source
               const parsed = toolsPart.split(",").map((t, idx) => {
                 const name = t.trim()
-                // A tool is "required" if it doesn't contain terms like (ถ้ามี) or (ไม่จำเป็น)
                 const isOptional = name.includes("(ถ้ามี)") || name.includes("(ไม่จำเป็น)") || name.includes("optional")
                 return {
                   id: String(idx + 1),
@@ -152,6 +192,10 @@ export function ChatContainer({ uploadedImage, onClearImage, onToolsParsed }: Ch
                 }
               }).filter(t => t.name.length > 0)
               onToolsParsed(parsed)
+            } else {
+              // Otherwise, fall back to parsing keywords in real-time as text streams in
+              const fallbackTools = extractTools(displayContent)
+              onToolsParsed(fallbackTools)
             }
           }
         }
