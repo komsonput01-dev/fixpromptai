@@ -328,8 +328,8 @@ export function ChatContainer({ uploadedImage, onClearImage, onToolsParsed }: Ch
               >
                 {msg.role !== "user" && (
                   <div className="flex gap-2 items-center mb-1">
-                    <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-                      <Bot className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                    <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
+                      <Bot className="w-3.5 h-3.5 text-blue-600" />
                     </div>
                     <span className="text-xs font-semibold text-muted-foreground">Fixbot AI</span>
                   </div>

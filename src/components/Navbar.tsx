@@ -6,11 +6,17 @@ import { useTheme } from "next-themes"
 import { useFontSize } from "./font-size-provider"
 
 export function Navbar() {
-  const { setTheme, theme } = useTheme()
+  const { setTheme, resolvedTheme } = useTheme()
   const { fontSize, setFontSize } = useFontSize()
+  const [mounted, setMounted] = React.useState(false)
+
+  // Only render theme button after mount to avoid hydration mismatch
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const toggleTheme = () => {
-    setTheme(theme === "light" ? "dark" : "light")
+    setTheme(resolvedTheme === "dark" ? "light" : "dark")
   }
 
   const cycleFontSize = () => {
@@ -19,6 +25,8 @@ export function Navbar() {
     const nextIndex = (currentIndex + 1) % sizes.length
     setFontSize(sizes[nextIndex])
   }
+
+  const isDark = resolvedTheme === "dark"
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -30,26 +38,42 @@ export function Navbar() {
           </span>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          {/* Font size toggle */}
           <button
             onClick={cycleFontSize}
-            className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground h-9 w-9"
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl text-sm font-medium transition-all hover:bg-accent hover:text-accent-foreground h-9 px-3 border border-border/50"
             aria-label="เปลี่ยนขนาดตัวอักษร"
-            title="เปลี่ยนขนาดตัวอักษร"
+            title={`ขนาดตัวอักษร: ${fontSize}`}
           >
-            <Type className="h-4 w-4" />
-            <span className="sr-only">เปลี่ยนขนาดตัวอักษร</span>
+            <Type className="h-3.5 w-3.5" />
+            <span className="text-xs font-bold uppercase hidden sm:inline">{fontSize}</span>
           </button>
-          <button
-            onClick={toggleTheme}
-            className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground h-9 w-9"
-            aria-label="สลับโหมดมืด/สว่าง"
-            title="สลับโหมดมืด/สว่าง"
-          >
-            <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-            <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-            <span className="sr-only">สลับโหมดมืด/สว่าง</span>
-          </button>
+
+          {/* Theme toggle — only renders after hydration to prevent mismatch */}
+          {mounted ? (
+            <button
+              onClick={toggleTheme}
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl text-sm font-medium transition-all hover:bg-accent hover:text-accent-foreground h-9 px-3 border border-border/50"
+              aria-label={isDark ? "เปลี่ยนเป็นโหมดสว่าง" : "เปลี่ยนเป็นโหมดมืด"}
+              title={isDark ? "โหมดมืด (คลิกเปลี่ยน)" : "โหมดสว่าง (คลิกเปลี่ยน)"}
+            >
+              {isDark ? (
+                <>
+                  <Moon className="h-4 w-4 text-blue-400" />
+                  <span className="text-xs hidden sm:inline">มืด</span>
+                </>
+              ) : (
+                <>
+                  <Sun className="h-4 w-4 text-amber-500" />
+                  <span className="text-xs hidden sm:inline">สว่าง</span>
+                </>
+              )}
+            </button>
+          ) : (
+            /* Placeholder to prevent layout shift */
+            <div className="h-9 w-20 rounded-xl border border-border/50 bg-muted/30 animate-pulse" />
+          )}
         </div>
       </div>
     </nav>
