@@ -1,7 +1,6 @@
 "use client"
 
-import { useChat } from "@ai-sdk/react"
-import { Send, Bot, User, AlertCircle } from "lucide-react"
+import { Send, Bot, AlertCircle } from "lucide-react"
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
@@ -12,15 +11,100 @@ const promptChips = [
   "ปลั๊กไฟช็อต",
 ]
 
+interface Message {
+  id: string
+  role: string
+  content: string
+}
+
 export function ChatContainer() {
-  // @ts-ignore: ai-sdk types might have changed or mismatched
-  const { messages, input, handleInputChange, handleSubmit, setInput, isLoading, error } = useChat()
+  const [messages, setMessages] = React.useState<Message[]>([])
+  const [input, setInput] = React.useState("")
+  const [isLoading, setIsLoading] = React.useState(false)
+  const [error, setError] = React.useState<Error | null>(null)
 
   const bottomRef = React.useRef<HTMLDivElement>(null)
 
   React.useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
+
+  const sendMessage = async (textToSend: string) => {
+    if (!textToSend.trim() || isLoading) return
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: "user",
+      content: textToSend.trim(),
+    }
+
+    // Capture current messages list to send to API
+    const updatedMessages = [...messages, userMessage]
+    setMessages(updatedMessages)
+    setInput("")
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: updatedMessages.map(m => ({ role: m.role, content: m.content })),
+        }),
+      })
+
+      if (!res.ok) {
+        throw new Error("Failed to send message")
+      }
+
+      const reader = res.body?.getReader()
+      const decoder = new TextDecoder()
+      if (!reader) {
+        throw new Error("No reader available")
+      }
+
+      const assistantMessageId = (Date.now() + 1).toString()
+      setMessages((prev) => [...prev, { id: assistantMessageId, role: "assistant", content: "" }])
+
+      let accumulatedContent = ""
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const chunk = decoder.decode(value, { stream: true })
+        const lines = chunk.split("\n")
+        for (const line of lines) {
+          if (!line.trim()) continue
+          if (line.startsWith('0:"')) {
+            let clean = line.slice(3)
+            if (clean.endsWith('"')) {
+              clean = clean.slice(0, -1)
+            }
+            const text = clean.replace(/\\"/g, '"').replace(/\\n/g, "\n")
+            accumulatedContent += text
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantMessageId ? { ...msg, content: accumulatedContent } : msg
+              )
+            )
+          }
+        }
+      }
+    } catch (err: any) {
+      console.error(err)
+      setError(err instanceof Error ? err : new Error(String(err)))
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    sendMessage(input)
+  }
 
   return (
     <div className="flex flex-col h-[500px] max-h-[70vh] border rounded-xl overflow-hidden bg-card/50 shadow-sm">
@@ -38,8 +122,9 @@ export function ChatContainer() {
               {promptChips.map((chip) => (
                 <button
                   key={chip}
-                  onClick={() => setInput(chip)}
-                  className="px-3 py-1.5 text-xs bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded-full transition-colors border border-border/50"
+                  type="button"
+                  onClick={() => sendMessage(chip)}
+                  className="px-3 py-1.5 text-xs bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded-full transition-colors border border-border/50 cursor-pointer"
                 >
                   {chip}
                 </button>
@@ -47,25 +132,23 @@ export function ChatContainer() {
             </div>
           </div>
         ) : (
-          messages.map((msg) => {
-            const m = msg as any;
-            return (
+          messages.map((msg) => (
             <div
-              key={m.id}
+              key={msg.id}
               className={cn(
                 "flex w-full",
-                m.role === "user" ? "justify-end" : "justify-start"
+                msg.role === "user" ? "justify-end" : "justify-start"
               )}
             >
               <div
                 className={cn(
                   "flex gap-3 max-w-[85%] rounded-2xl px-4 py-3",
-                  m.role === "user"
+                  msg.role === "user"
                     ? "bg-blue-600 text-white"
                     : "bg-muted text-foreground"
                 )}
               >
-                {m.role !== "user" && (
+                {msg.role !== "user" && (
                   <div className="flex-shrink-0 mt-0.5">
                     <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
                       <Bot className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
@@ -73,13 +156,13 @@ export function ChatContainer() {
                   </div>
                 )}
                 <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                  {m.content || m.text || ""}
+                  {msg.content}
                 </div>
               </div>
             </div>
-          )})
+          ))
         )}
-        
+
         {isLoading && (
           <div className="flex justify-start">
             <div className="bg-muted text-foreground rounded-2xl px-4 py-3 flex gap-2 items-center">
@@ -91,7 +174,7 @@ export function ChatContainer() {
             </div>
           </div>
         )}
-        
+
         {error && (
           <div className="flex justify-center my-2">
             <div className="bg-destructive/10 text-destructive text-sm px-3 py-2 rounded-lg flex items-center gap-2">
@@ -112,12 +195,12 @@ export function ChatContainer() {
             className="flex-1 bg-transparent border-none outline-none text-sm placeholder:text-muted-foreground"
             value={input}
             placeholder="พิมพ์ปัญหาของคุณที่นี่ (เช่น ท่อน้ำรั่วซึม)..."
-            onChange={handleInputChange}
+            onChange={(e) => setInput(e.target.value)}
           />
           <button
             type="submit"
-            disabled={isLoading || !input?.trim()}
-            className="w-8 h-8 rounded-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center transition-colors disabled:opacity-50 disabled:hover:bg-blue-600 shrink-0"
+            disabled={isLoading || !input.trim()}
+            className="w-8 h-8 rounded-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center transition-colors disabled:opacity-50 disabled:hover:bg-blue-600 shrink-0 cursor-pointer"
           >
             <Send className="w-4 h-4" />
             <span className="sr-only">ส่งข้อความ</span>
@@ -127,3 +210,4 @@ export function ChatContainer() {
     </div>
   )
 }
+
